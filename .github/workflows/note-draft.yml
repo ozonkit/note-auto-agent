@@ -66,7 +66,7 @@ jobs:
       - name: Generate image (MAI-Image-2e)
         env:
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_IMAGE_ENDPOINT: ${{ secrets.AZURE_OPENAI_IMAGE_ENDPOINT }}
           AZURE_OPENAI_IMAGE_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_IMAGE_DEPLOYMENT }}
         run: |
           RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt'))['run_id'])")
