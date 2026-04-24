@@ -18,15 +18,16 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "cover_raw.png"
 
+    # ✅ MAI-Image-2e 用 endpoint を使う
     client = OpenAI(
         api_key=os.environ["AZURE_OPENAI_API_KEY"],
-        base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')}/openai/v1/"
+        base_url=f"{os.environ['AZURE_OPENAI_IMAGE_ENDPOINT'].rstrip('/')}/openai/v1/"
     )
 
     result = client.images.generate(
         model=os.environ["AZURE_OPENAI_IMAGE_DEPLOYMENT"],
         prompt=prompt,
-        size="1920x640"   # ✅ 3:1（モデル制約内）
+        size="1920x640"   # 3:1（後でトリミング）
     )
 
     img_b64 = result.data[0].b64_json
