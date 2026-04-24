@@ -63,10 +63,26 @@ jobs:
         run: |
           python scripts/generate_article.py
 
-      - name: Upload artifacts (draft)
+      - name: Generate image (MAI-Image-2e)
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_IMAGE_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_IMAGE_DEPLOYMENT }}
+        run: |
+          RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt'))['run_id'])")
+          echo "RUN_DIR=drafts/generated/$RUN_ID" >> $GITHUB_ENV
+          python scripts/generate_image_azure.py
+      
+      - name: Crop image for note
+        run: |
+          python scripts/crop_note_cover.py
+
+
+      - name: Upload artifacts (draft + images)
         uses: actions/upload-artifact@v4
         with:
           name: generated-draft
           path: |
             drafts/generated/**
+            assets/images/**
             run_log.txt
