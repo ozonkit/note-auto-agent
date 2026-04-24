@@ -69,9 +69,12 @@ jobs:
           AZURE_OPENAI_IMAGE_ENDPOINT: ${{ secrets.AZURE_OPENAI_IMAGE_ENDPOINT }}
           AZURE_OPENAI_IMAGE_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_IMAGE_DEPLOYMENT }}
         run: |
-          RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt'))['run_id'])")
-          echo "RUN_DIR=drafts/generated/$RUN_ID" >> $GITHUB_ENV
+          RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt','r',encoding='utf-8'))['run_id'])")
+          RUN_DIR="drafts/generated/$RUN_ID"
+          echo "RUN_DIR=$RUN_DIR" >> $GITHUB_ENV
+          export RUN_DIR="$RUN_DIR"
           python scripts/generate_image_azure.py
+
       
       - name: Crop image for note
         run: |
