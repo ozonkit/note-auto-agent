@@ -63,19 +63,21 @@ jobs:
         run: |
           python scripts/generate_article.py
 
+
       - name: Generate image (MAI-Image-2e)
         env:
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
           AZURE_OPENAI_IMAGE_ENDPOINT: ${{ secrets.AZURE_OPENAI_IMAGE_ENDPOINT }}
           AZURE_OPENAI_IMAGE_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_IMAGE_DEPLOYMENT }}
+          MAI_WIDTH: "1365"
+          MAI_HEIGHT: "768"
         run: |
           RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt','r',encoding='utf-8'))['run_id'])")
           RUN_DIR="drafts/generated/$RUN_ID"
           echo "RUN_DIR=$RUN_DIR" >> $GITHUB_ENV
           export RUN_DIR="$RUN_DIR"
           python scripts/generate_image_azure.py
-
-      
+     
       - name: Crop image for note
         run: |
           python scripts/crop_note_cover.py
