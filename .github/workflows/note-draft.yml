@@ -1,0 +1,64 @@
+name: Generate note draft (Phase 1)
+
+on:
+  workflow_dispatch:
+    inputs:
+      theme:
+        description: "記事テーマ"
+        required: true
+        type: string
+      tone:
+        description: "文体（任意）"
+        required: false
+        default: "note向け、自然体。共感寄りで実用ノウハウも少し。"
+        type: string
+      words:
+        description: "目安文字数（任意）"
+        required: false
+        default: "1800"
+        type: string
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate article (OpenAI gpt-4.1)
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          THEME: ${{ inputs.theme }}
+          TONE: ${{ inputs.tone }}
+          WORDS: ${{ inputs.words }}
+        # env:
+        #   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        #   THEME: ${{ inputs.theme }}
+        #   TONE: ${{ inputs.tone }}
+        #   WORDS: ${{ inputs.words }}
+
+        run: |
+          python scripts/generate_article.py
+
+      - name: Upload artifacts (draft)
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-draft
+          path: |
+            drafts/generated/**
+            run_log.txt
