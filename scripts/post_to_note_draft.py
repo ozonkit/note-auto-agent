@@ -31,14 +31,54 @@ def read_run_id():
     d = json.loads(Path("run_log.txt").read_text(encoding="utf-8"))
     return d["run_id"]
 
-def extract_title_from_md(md_text: str, fallback: str):
-    for line in md_text.splitlines():
-        if line.startswith("# "):
-            t = line[2:].strip()
-            return t if t else fallback
-        if line.strip():
-            break
-    return fallback
+def split_title_and_body(md_text: str, fallback_title: str):
+    """
+    - 先頭行が '# ' の場合：それをタイトルに、本文から除外
+    - それ以外：fallback_title をタイトルに、本文はそのまま
+    """
+    lines = md_text.splitlines()
+    title = fallback_title
+    body_lines = lines[:]
+
+    if lines and lines[0].startswith("# "):
+        title = lines[0][2:].strip() or fallback_title
+        body_lines = lines[1:]
+
+        # 先頭の空行を削る
+        while body_lines and body_lines[0].strip() == "":
+            body_lines = body_lines[1:]
+
+    body = "\n".join(body_lines).strip()
+    return title, body
+
+def try_fill_first(page, selectors, text, timeout_each=5000):
+    """
+    複数候補のセレクタを順に試し、最初に見つかった要素へ入力する。
+    成功したら True。
+    """
+    for sel in selectors:
+        loc = page.locator(sel).first
+        try:
+            loc.wait_for(state="visible", timeout=timeout_each)
+            loc.click()
+            # input/textareaならfillが効く。contenteditable系はキーボードで上書き
+            tag = None
+            try:
+                tag = loc.evaluate("el => el.tagName")
+            except Exception:
+                tag = None
+
+            # 既存文字を消して入れ替え
+            if tag in ("INPUT", "TEXTAREA"):
+                loc.fill("")
+                loc.fill(text)
+            else:
+                page.keyboard.press("Control+A")
+                page.keyboard.insert_text(text)
+            return True
+        except Exception:
+            continue
+    return False
 
 def main():
     run_id = os.getenv("RUN_ID") or read_run_id()
@@ -46,7 +86,7 @@ def main():
     images_dir = Path(os.getenv("IMAGES_DIR", f"assets/images/{run_id}"))
 
     article_path = run_dir / "article.md"
-    cover_path = images_dir / "cover_1280x210.png"  # note推奨サイズ（なければ後で差し替え）
+    cover_path = images_dir / "cover_1280x210.png"  # note推奨
 
     if not Path(AUTH_FILE).exists():
         raise SystemExit("auth.json not found (restored from secrets?)")
@@ -54,75 +94,144 @@ def main():
         raise SystemExit(f"article.md not found: {article_path}")
 
     article_md = article_path.read_text(encoding="utf-8")
-    title = extract_title_from_md(article_md, f"Auto draft {run_id}")
 
-    headless = os.getenv("HEADLESS", "true").lower() in ("1","true","yes","y")
-    test_mode = os.getenv("TEST_MODE", "false").lower() in ("1","true","yes","y")
+    fallback_title = f"Auto draft {run_id}"
+    title, body_md = split_title_and_body(article_md, fallback_title)
+
+    headless = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes", "y")
+    test_mode = os.getenv("TEST_MODE", "false").lower() in ("1", "true", "yes", "y")
+    upload_cover = os.getenv("UPLOAD_COVER", "true").lower() in ("1", "true", "yes", "y")
 
     log(f"RUN_ID={run_id}")
-    log(f"HEADLESS={headless} TEST_MODE={test_mode}")
+    log(f"HEADLESS={headless} TEST_MODE={test_mode} UPLOAD_COVER={upload_cover}")
+    log(f"RUN_DIR={run_dir}")
+    log(f"IMAGES_DIR={images_dir}")
+    log(f"TITLE={title}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless, args=["--lang=ja-JP"])
         context = browser.new_context(locale="ja-JP", storage_state=AUTH_FILE)
+
+        # 失敗時に追えるよう tracing を開始（Artifacts 回収前提）[2](https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/introducing-mai-image-2-efficient-faster-more-efficient-image-generation/4510918)
         context.tracing.start(screenshots=True, snapshots=True, sources=False)
 
         page = context.new_page()
         page.set_default_timeout(180000)
 
+        # 白画面原因の手掛かり用（任意だが効く）
+        page.on("console", lambda m: log(f"[console] {m.type}: {m.text}"))
+        page.on("pageerror", lambda e: log(f"[pageerror] {e}"))
+        page.on("requestfailed", lambda r: log(f"[requestfailed] {r.url} {r.failure}"))
+
         try:
             log("Open editor new page...")
-
             page.goto(NEW_URL, wait_until="domcontentloaded")
 
-            # JSアプリが描画しきるまで少し待つ（headless白画面対策の補助）
+            # SPA描画待ち（白画面/ローディング対策の補助）
             page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(2000)
 
-            # URLで明確にloginへ飛ばされた場合
+            # URLでloginへ飛ぶ場合
             if "login" in page.url:
-                raise RuntimeError(f"Not logged in (redirected to {page.url}). Recreate auth.json after visiting editor.note.com/new.")
+                raise RuntimeError(
+                    f"Not logged in (redirected to {page.url}). "
+                    f"Recreate auth.json after visiting editor.note.com/new."
+                )
 
-            # ログイン要求UIを検知（URLが変わらないケース対策）
+            # URLが変わらずログイン要求UIが出る場合
             login_like = page.locator('text=ログイン, text=Sign in, a[href*="login"], button:has-text("ログイン")')
             if login_like.count() > 0:
-                raise RuntimeError("Login prompt detected on editor page. auth.json may be invalid for editor.note.com")
+                raise RuntimeError(
+                    "Login prompt detected on editor page. "
+                    "auth.json may be invalid for editor.note.com"
+                )
 
-            # タイトル欄候補を増やす（placeholder以外も拾う）
-            title_locator = page.locator(
-                'textarea[placeholder*="タイトル"], textarea[aria-label*="タイトル"], '
-                'input[placeholder*="タイトル"], input[aria-label*="タイトル"], '
-                '[data-testid*="title"] textarea, [data-testid*="title"] input'
+            # -----------------------------
+            # 1) タイトル入力（候補を広めに）
+            # -----------------------------
+            title_candidates = [
+                'textarea[placeholder*="タイトル"]',
+                'textarea[aria-label*="タイトル"]',
+                'input[placeholder*="タイトル"]',
+                'input[aria-label*="タイトル"]',
+                '[data-testid*="title"] textarea',
+                '[data-testid*="title"] input',
+                'h1[contenteditable="true"]',
+                '[contenteditable="true"][data-testid*="title"]',
+            ]
+
+            ok_title = try_fill_first(page, title_candidates, title)
+            if not ok_title:
+                raise RuntimeError("Title field not found. Check trace.zip/debug.html to update selectors.")
+
+            # -----------------------------
+            # 2) 本文入力（ProseMirror優先）
+            #    ※ ```markdown が出る問題は入力先ズレが多いので、本文エディタ本体を狙う
+            # -----------------------------
+            editor_candidates = [
+                "div.ProseMirror[contenteditable='true']",
+                "[role='textbox'][contenteditable='true']",
+                "div[contenteditable='true']",
+            ]
+
+            editor_found = False
+            for sel in editor_candidates:
+                loc = page.locator(sel).first
+                try:
+                    loc.wait_for(state="visible", timeout=15000)
+                    loc.click()
+                    page.keyboard.press("Control+A")
+                    page.keyboard.insert_text(body_md)
+                    editor_found = True
+                    break
+                except Exception:
+                    continue
+
+            if not editor_found:
+                raise RuntimeError("Body editor not found. Check trace.zip/debug.html to update selectors.")
+
+            # -----------------------------
+            # 3) アイキャッチ（best-effort）
+            # -----------------------------
+            if upload_cover and cover_path.exists():
+                log(f"Cover found: {cover_path}")
+
+                # 左上の画像プレースホルダを狙う（UI次第で調整が必要なのでtraceで確定推奨）
+                # まず file input を探し、なければプレースホルダをクリックして出す
+                file_input = page.locator('input[type="file"]').first
+                if file_input.count() == 0:
+                    # それっぽいボタン/領域をクリックして file input を出す
+                    placeholder_candidates = [
+                        "button:has(svg)",
+                        "div:has(svg)",
+                        "button:has-text('画像')",
+                        "button[aria-label*='画像']",
+                    ]
+                    for sel in placeholder_candidates:
+                        try:
+                            page.locator(sel).first.click(timeout=2000)
+                            break
+                        except Exception:
+                            pass
+                    page.wait_for_timeout(500)
+                    file_input = page.locator('input[type="file"]').first
+
+                if file_input.count() > 0:
+                    file_input.set_input_files(str(cover_path))
+                    page.wait_for_timeout(1500)
+                else:
+                    log("Cover upload input not found. (best-effort)")
+
+            else:
+                log("Cover image not found or UPLOAD_COVER=false. Skipping cover upload.")
+
+            # -----------------------------
+            # 4) 下書き保存（best-effort）
+            # -----------------------------
+            save_btn = page.locator(
+                'button:has-text("下書き"), button:has-text("保存"), button:has-text("Save")'
             ).first
 
-            # ここが出ない＝描画できてない（白画面/ローディング継続）
-            title_locator.wait_for(state="visible", timeout=180000)
-            title_locator.fill(title)
-
-            # 本文欄（contenteditableを優先）
-            editor = page.locator('[contenteditable="true"]').first
-            editor.click()
-            page.keyboard.insert_text(article_md)
-
-            # （以下、画像アップロード/下書き保存はそのままでOK）
-
-            # 画像アップロード（初回は壊れやすいので best-effort）
-            if cover_path.exists():
-                log(f"Cover found: {cover_path}")
-                # 画像追加ボタンの候補（UI次第で変わるのでtraceで調整）
-                # 「画像を追加」「画像」などを探索
-                btn = page.locator('button[aria-label*="画像"], button:has-text("画像")').first
-                if btn.count() > 0:
-                    btn.click()
-                    # input[type=file] が出るパターン
-                    file_input = page.locator('input[type="file"]').first
-                    if file_input.count() > 0:
-                        file_input.set_input_files(str(cover_path))
-            else:
-                log("Cover image not found. Skipping cover upload for now.")
-
-            # 下書き保存（UI表現が変わる可能性あり）
-            save_btn = page.locator('button:has-text("下書き"), button:has-text("保存"), button:has-text("Save")').first
             if save_btn.count() > 0:
                 if not test_mode:
                     save_btn.click()
@@ -133,14 +242,13 @@ def main():
                 log("Save button not found. You may need to adjust selectors with trace.")
 
             save_debug(page)
-
-            # 成功時：編集URLに遷移している可能性があるので出力
             log(f"Current URL: {page.url}")
 
-        except Exception as e:
+        except Exception:
             save_debug(page)
             raise
         finally:
+            # trace は原因究明に非常に有効（Artifacts回収前提）[2](https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/introducing-mai-image-2-efficient-faster-more-efficient-image-generation/4510918)
             context.tracing.stop(path=TRACE_FILE)
             browser.close()
 
