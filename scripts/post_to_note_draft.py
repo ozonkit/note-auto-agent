@@ -90,30 +90,45 @@ def main():
 
         try:
             log("Open note editor...")
+            # ===== note 新規作成 =====
             page.goto(NEW_URL, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(2000)
-
-            if "login" in page.url:
-                raise RuntimeError("Not logged in. auth.json invalid for editor.note.com")
-
-            # ===== B. 本文エディタを先にクリック（重要） =====
+            
+            # 本文エディタにフォーカス（ProseMirror）
             editor = page.locator("div.ProseMirror[contenteditable='true']").first
             editor.wait_for(state="visible", timeout=30000)
             editor.click()
-            page.wait_for_timeout(500)
+            
+            # ✅ 重要：まず何も考えず Enter を1回
+            page.keyboard.press("Enter")
+            
+            # ✅ そのあとで記事全文を貼る
+            page.keyboard.insert_text(article_md)
+            # page.goto(NEW_URL, wait_until="domcontentloaded")
+            # page.wait_for_load_state("networkidle")
+            # page.wait_for_timeout(2000)
 
-            # ===== A. タイトル（ここで h1 が生成されている） =====
-            title_el = page.locator("h1[contenteditable='true']").first
-            title_el.wait_for(state="visible", timeout=30000)
-            title_el.click()
-            page.keyboard.press("Control+A")
-            page.keyboard.insert_text(title)
+            # if "login" in page.url:
+            #     raise RuntimeError("Not logged in. auth.json invalid for editor.note.com")
 
-            # ===== B. 本文入力 =====
-            editor.click()
-            page.keyboard.press("Control+A")
-            page.keyboard.insert_text(body_md)
+            # # ===== B. 本文エディタを先にクリック（重要） =====
+            # editor = page.locator("div.ProseMirror[contenteditable='true']").first
+            # editor.wait_for(state="visible", timeout=30000)
+            # editor.click()
+            # page.wait_for_timeout(500)
+
+            # # ===== A. タイトル（ここで h1 が生成されている） =====
+            # title_el = page.locator("h1[contenteditable='true']").first
+            # title_el.wait_for(state="visible", timeout=30000)
+            # title_el.click()
+            # page.keyboard.press("Control+A")
+            # page.keyboard.insert_text(title)
+
+            # # ===== B. 本文入力 =====
+            # editor.click()
+            # page.keyboard.press("Control+A")
+            # page.keyboard.insert_text(body_md)
 
             save_debug(page)
             log(f"SUCCESS. Current URL: {page.url}")
