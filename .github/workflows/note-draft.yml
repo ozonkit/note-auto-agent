@@ -107,12 +107,14 @@ jobs:
           pip install playwright
           python -m playwright install --with-deps chromium
           
-      - name: Post to note (draft)
+      - name: Post to note (draft only) - headed via Xvfb
         env:
-          HEADLESS: "true"
+          HEADLESS: "false"
           TEST_MODE: "false"
         run: |
-          python scripts/post_to_note_draft.py
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          xvfb-run -a python scripts/post_to_note_draft.py
 
 
       - name: Set paths for posting (RUN_ID/RUN_DIR/IMAGES_DIR)
