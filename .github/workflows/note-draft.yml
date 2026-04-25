@@ -126,7 +126,7 @@ jobs:
           RUN_DIR="drafts/generated/${RUN_ID}"
           IMAGES_DIR="assets/images/${RUN_ID}"
 
-          # 次ステップ用に環境変数を永続化（GITHUB_ENVは次ステップから有効）[1](https://playwright.dev/docs/auth)[2](https://www.codestudy.net/blog/schedule-trigger-github-action-workflow-with-input-parameters/)
+          # GITHUB_ENV は「次のステップから」有効 [1](https://playwright.dev/docs/auth)[2](https://www.codestudy.net/blog/schedule-trigger-github-action-workflow-with-input-parameters/)
           echo "RUN_ID=${RUN_ID}" >> "${GITHUB_ENV}"
           echo "RUN_DIR=${RUN_DIR}" >> "${GITHUB_ENV}"
           echo "IMAGES_DIR=${IMAGES_DIR}" >> "${GITHUB_ENV}"
@@ -142,6 +142,8 @@ jobs:
           if [ -d "${IMAGES_DIR}" ]; then
             ls -la "${IMAGES_DIR}"
           else
+            echo "IMAGES_DIR not found: ${IMAGES_DIR}"
+          fi
 
           
       - name: Upload artifacts (draft + images + debug)
