@@ -86,7 +86,47 @@ jobs:
           python scripts/crop_note_cover.py
 
 
-      - name: Upload artifacts (draft + images)
+      # - name: Upload artifacts (draft + images)
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: generated-draft
+      #     path: |
+      #       drafts/generated/**
+      #       assets/images/**
+      #       run_log.txt
+            
+      - name: Restore note auth state
+        env:
+          NOTE_AUTH_JSON_BASE64: ${{ secrets.NOTE_AUTH_JSON_BASE64 }}
+        run: |
+          echo "$NOTE_AUTH_JSON_BASE64" | base64 -d > auth.json
+          ls -la auth.json
+          
+      - name: Install Playwright (Python)
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          
+      - name: Post to note (draft)
+        env:
+          HEADLESS: "true"
+          TEST_MODE: "false"
+        run: |
+          python scripts/post_to_note_draft.py
+
+
+      - name: Set paths for posting (RUN_ID/RUN_DIR/IMAGES_DIR)
+        run: |
+          RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt','r',encoding='utf-8'))['run_id'])")
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "RUN_DIR=drafts/generated/$RUN_ID" >> $GITHUB_ENV
+          echo "IMAGES_DIR=assets/images/$RUN_ID" >> $GITHUB_ENV
+          echo "RUN_ID=$RUN_ID"
+          ls -la "drafts/generated/$RUN_ID" || true
+          ls -la "assets/images/$RUN
+          
+      - name: Upload artifacts (draft + images + debug)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: generated-draft
@@ -94,3 +134,7 @@ jobs:
             drafts/generated/**
             assets/images/**
             run_log.txt
+            auth.json
+            debug.png
+            debug.html
+            trace.zip
