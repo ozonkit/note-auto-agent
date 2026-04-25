@@ -72,21 +72,39 @@ def main():
 
         try:
             log("Open editor new page...")
+
             page.goto(NEW_URL, wait_until="domcontentloaded")
 
-            # ログイン切れの判定（ログイン画面に飛ばされたらNG）
+            # JSアプリが描画しきるまで少し待つ（headless白画面対策の補助）
+            page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(3000)
+
+            # URLで明確にloginへ飛ばされた場合
             if "login" in page.url:
                 raise RuntimeError(f"Not logged in (redirected to {page.url}). Recreate auth.json after visiting editor.note.com/new.")
 
-            # タイトル欄（noteのUI変更により要調整の可能性あり）
-            page.wait_for_selector('textarea[placeholder*="タイトル"], textarea[placeholder*="title"]')
-            page.fill('textarea[placeholder*="タイトル"], textarea[placeholder*="title"]', title)
+            # ログイン要求UIを検知（URLが変わらないケース対策）
+            login_like = page.locator('text=ログイン, text=Sign in, a[href*="login"], button:has-text("ログイン")')
+            if login_like.count() > 0:
+                raise RuntimeError("Login prompt detected on editor page. auth.json may be invalid for editor.note.com")
+
+            # タイトル欄候補を増やす（placeholder以外も拾う）
+            title_locator = page.locator(
+                'textarea[placeholder*="タイトル"], textarea[aria-label*="タイトル"], '
+                'input[placeholder*="タイトル"], input[aria-label*="タイトル"], '
+                '[data-testid*="title"] textarea, [data-testid*="title"] input'
+            ).first
+
+            # ここが出ない＝描画できてない（白画面/ローディング継続）
+            title_locator.wait_for(state="visible", timeout=180000)
+            title_locator.fill(title)
 
             # 本文欄（contenteditableを優先）
             editor = page.locator('[contenteditable="true"]').first
             editor.click()
-            # Markdownをそのまま貼る（整形はPhase3後半で詰める）
             page.keyboard.insert_text(article_md)
+
+            # （以下、画像アップロード/下書き保存はそのままでOK）
 
             # 画像アップロード（初回は壊れやすいので best-effort）
             if cover_path.exists():
