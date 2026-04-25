@@ -118,14 +118,31 @@ jobs:
 
 
       - name: Set paths for posting (RUN_ID/RUN_DIR/IMAGES_DIR)
+        shell: bash
         run: |
+          set -euo pipefail
+
           RUN_ID=$(python -c "import json; print(json.load(open('run_log.txt','r',encoding='utf-8'))['run_id'])")
-          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "RUN_DIR=drafts/generated/$RUN_ID" >> $GITHUB_ENV
-          echo "IMAGES_DIR=assets/images/$RUN_ID" >> $GITHUB_ENV
-          echo "RUN_ID=$RUN_ID"
-          ls -la "drafts/generated/$RUN_ID" || true
-          ls -la "assets/images/$RUN
+          RUN_DIR="drafts/generated/${RUN_ID}"
+          IMAGES_DIR="assets/images/${RUN_ID}"
+
+          # 次ステップ用に環境変数を永続化（GITHUB_ENVは次ステップから有効）[1](https://playwright.dev/docs/auth)[2](https://www.codestudy.net/blog/schedule-trigger-github-action-workflow-with-input-parameters/)
+          echo "RUN_ID=${RUN_ID}" >> "${GITHUB_ENV}"
+          echo "RUN_DIR=${RUN_DIR}" >> "${GITHUB_ENV}"
+          echo "IMAGES_DIR=${IMAGES_DIR}" >> "${GITHUB_ENV}"
+
+          echo "RUN_ID=${RUN_ID}"
+          echo "RUN_DIR=${RUN_DIR}"
+          echo "IMAGES_DIR=${IMAGES_DIR}"
+
+          echo "--- RUN_DIR contents ---"
+          ls -la "${RUN_DIR}"
+
+          echo "--- IMAGES_DIR contents (if exists) ---"
+          if [ -d "${IMAGES_DIR}" ]; then
+            ls -la "${IMAGES_DIR}"
+          else
+
           
       - name: Upload artifacts (draft + images + debug)
         if: always()
