@@ -100,11 +100,27 @@ def main():
             editor.wait_for(state="visible", timeout=30000)
             editor.click()
             
-            # ✅ 重要：まず何も考えず Enter を1回
-            page.keyboard.press("Enter")
+            # ✅ note用の“貼り付け相当”手順
+            lines = article_md.splitlines()
             
-            # ✅ そのあとで記事全文を貼る
-            page.keyboard.insert_text(article_md)
+            if lines:
+                # ① 先頭行（# タイトル）を入力 → noteがタイトルに昇格
+                page.keyboard.type(lines[0], delay=0)
+            
+                # ② 空行を2つ入れる（本文開始）
+                page.keyboard.press("Enter")
+                page.keyboard.press("Enter")
+            
+                # ③ 残りを本文として入力
+                if len(lines) > 1:
+                    page.keyboard.type("\n".join(lines[1:]), delay=0)
+
+            
+            # # ✅ 重要：まず何も考えず Enter を1回
+            # page.keyboard.press("Enter")
+            
+            # # ✅ そのあとで記事全文を貼る
+            # page.keyboard.insert_text(article_md)
             # page.goto(NEW_URL, wait_until="domcontentloaded")
             # page.wait_for_load_state("networkidle")
             # page.wait_for_timeout(2000)
