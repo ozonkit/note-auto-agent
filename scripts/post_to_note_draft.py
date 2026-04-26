@@ -49,14 +49,14 @@ def split_title_and_body(md_text: str, fallback_title: str):
 
 def md_to_note_body(md: str) -> str:
     """
-    note では Markdown の自動昇格を期待しない。
-    見出しだけ H2 風に整形する（## → 見出し行）
+    note では Markdown 自動昇格を期待しない。
+    ## 見出し → H2 風表現に変換
     """
     out = []
     for line in md.splitlines():
         if line.startswith("## "):
-            out.append(line.replace("## ", "■ ", 1))
-            out.append("")  # 見出し後に空行
+            out.append("■ " + line[3:])
+            out.append("")
         else:
             out.append(line)
     return "\n".join(out)
@@ -65,7 +65,6 @@ def md_to_note_body(md: str) -> str:
 def main():
     run_id = os.getenv("RUN_ID") or read_run_id()
     run_dir = Path(os.getenv("RUN_DIR", f"drafts/generated/{run_id}"))
-
     article_path = run_dir / "article.md"
 
     if not Path(AUTH_FILE).exists():
@@ -74,7 +73,6 @@ def main():
         raise SystemExit(f"article.md not found: {article_path}")
 
     article_md = article_path.read_text(encoding="utf-8")
-
     title, body_md = split_title_and_body(article_md, f"Auto draft {run_id}")
     body_for_note = md_to_note_body(body_md)
 
@@ -86,7 +84,6 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless, args=["--lang=ja-JP"])
         context = browser.new_context(locale="ja-JP", storage_state=AUTH_FILE)
-
         context.tracing.start(screenshots=True, snapshots=True, sources=False)
 
         page = context.new_page()
@@ -96,18 +93,18 @@ def main():
             log("Open note editor...")
             page.goto(NEW_URL, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1500)
 
             if "login" in page.url:
-                raise RuntimeError("Not logged in. auth.json invalid for editor.note.com")
+                raise RuntimeError("Not logged in. auth.json invalid.")
 
-            # ===== タイトル欄を placeholder で掴む =====
-            title_placeholder = page.locator("text=記事タイトル").first
-            title_placeholder.wait_for(state="visible", timeout=30000)
-            title_placeholder.click()
-            page.keyboard.insert_text(title)
+            # ✅ タイトル欄（DOM確定）
+            title_box = page.locator('textarea[placeholder="記事タイトル"]').first
+            title_box.wait_for(state="visible", timeout=30000)
+            title_box.click()
+            title_box.fill(title)
 
-            # ===== 本文欄 =====
+            # ✅ 本文欄
             editor = page.locator("div.ProseMirror[contenteditable='true']").first
             editor.wait_for(state="visible", timeout=30000)
             editor.click()
