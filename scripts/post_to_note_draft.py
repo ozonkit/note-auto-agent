@@ -47,6 +47,21 @@ def split_title_and_body(md_text: str, fallback_title: str):
     return title, body
 
 
+def md_to_note_body(md: str) -> str:
+    """
+    note では Markdown の自動昇格を期待しない。
+    見出しだけ H2 風に整形する（## → 見出し行）
+    """
+    out = []
+    for line in md.splitlines():
+        if line.startswith("## "):
+            out.append(line.replace("## ", "■ ", 1))
+            out.append("")  # 見出し後に空行
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
 def main():
     run_id = os.getenv("RUN_ID") or read_run_id()
     run_dir = Path(os.getenv("RUN_DIR", f"drafts/generated/{run_id}"))
@@ -59,7 +74,9 @@ def main():
         raise SystemExit(f"article.md not found: {article_path}")
 
     article_md = article_path.read_text(encoding="utf-8")
+
     title, body_md = split_title_and_body(article_md, f"Auto draft {run_id}")
+    body_for_note = md_to_note_body(body_md)
 
     headless = os.getenv("HEADLESS", "false").lower() in ("1", "true", "yes", "y")
 
@@ -67,84 +84,34 @@ def main():
     log(f"TITLE={title}")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=headless,
-            args=["--lang=ja-JP"]
-        )
-        context = browser.new_context(
-            locale="ja-JP",
-            storage_state=AUTH_FILE
-        )
+        browser = p.chromium.launch(headless=headless, args=["--lang=ja-JP"])
+        context = browser.new_context(locale="ja-JP", storage_state=AUTH_FILE)
 
-        context.tracing.start(
-            screenshots=True,
-            snapshots=True,
-            sources=False
-        )
+        context.tracing.start(screenshots=True, snapshots=True, sources=False)
 
         page = context.new_page()
         page.set_default_timeout(180000)
 
-        page.on("console", lambda m: log(f"[console] {m.type}: {m.text}"))
-        page.on("pageerror", lambda e: log(f"[pageerror] {e}"))
-
         try:
             log("Open note editor...")
-            # ===== note 新規作成 =====
             page.goto(NEW_URL, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(2000)
-            
-            # 本文エディタにフォーカス（ProseMirror）
+
+            if "login" in page.url:
+                raise RuntimeError("Not logged in. auth.json invalid for editor.note.com")
+
+            # ===== タイトル欄を placeholder で掴む =====
+            title_placeholder = page.locator("text=記事タイトル").first
+            title_placeholder.wait_for(state="visible", timeout=30000)
+            title_placeholder.click()
+            page.keyboard.insert_text(title)
+
+            # ===== 本文欄 =====
             editor = page.locator("div.ProseMirror[contenteditable='true']").first
             editor.wait_for(state="visible", timeout=30000)
             editor.click()
-            
-            # ✅ note用の“貼り付け相当”手順
-            lines = article_md.splitlines()
-            
-            if lines:
-                # ① 先頭行（# タイトル）を入力 → noteがタイトルに昇格
-                page.keyboard.type(lines[0], delay=0)
-            
-                # ② 空行を2つ入れる（本文開始）
-                page.keyboard.press("Enter")
-                page.keyboard.press("Enter")
-            
-                # ③ 残りを本文として入力
-                if len(lines) > 1:
-                    page.keyboard.type("\n".join(lines[1:]), delay=0)
-
-            
-            # # ✅ 重要：まず何も考えず Enter を1回
-            # page.keyboard.press("Enter")
-            
-            # # ✅ そのあとで記事全文を貼る
-            # page.keyboard.insert_text(article_md)
-            # page.goto(NEW_URL, wait_until="domcontentloaded")
-            # page.wait_for_load_state("networkidle")
-            # page.wait_for_timeout(2000)
-
-            # if "login" in page.url:
-            #     raise RuntimeError("Not logged in. auth.json invalid for editor.note.com")
-
-            # # ===== B. 本文エディタを先にクリック（重要） =====
-            # editor = page.locator("div.ProseMirror[contenteditable='true']").first
-            # editor.wait_for(state="visible", timeout=30000)
-            # editor.click()
-            # page.wait_for_timeout(500)
-
-            # # ===== A. タイトル（ここで h1 が生成されている） =====
-            # title_el = page.locator("h1[contenteditable='true']").first
-            # title_el.wait_for(state="visible", timeout=30000)
-            # title_el.click()
-            # page.keyboard.press("Control+A")
-            # page.keyboard.insert_text(title)
-
-            # # ===== B. 本文入力 =====
-            # editor.click()
-            # page.keyboard.press("Control+A")
-            # page.keyboard.insert_text(body_md)
+            page.keyboard.insert_text(body_for_note)
 
             save_debug(page)
             log(f"SUCCESS. Current URL: {page.url}")
