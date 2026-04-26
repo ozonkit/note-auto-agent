@@ -123,24 +123,33 @@ def main():
                     page.wait_for_timeout(1500)
                     log("Cover image uploaded (cover_raw.png) via filechooser.")
 
-                    # ダイアログ内限定で保存ボタンを狙う
-                    save_btn = page.locator(
-                        'div[role="dialog"] div[data-justify="right"] button.relative:has-text("保存")'
-                    ).first
-                    save_btn.wait_for(state="visible", timeout=10000)
-                    save_btn.wait_for(state="enabled", timeout=10000)
+                    # 画像アップロード後、トリミングモーダルを待つ
+                    # modal = page.locator(".ReactModal__Overlay").filter(has_text="保存").last
+                    modal = page.locator(".ReactModal__Overlay").filter(has_text="保存").nth(-1)
+                    modal.wait_for(state="visible", timeout=30000)
                     
+                    # 画像の読み込み完了を待つ
+                    modal.locator("img").first.wait_for(state="visible", timeout=30000)
                     
-                    # ここでスクロール＆forceクリックを追加
+                    # 保存ボタンをモーダル内で取得
+                    save_btn = modal.get_by_role("button", name="保存")
+                    
+                    save_btn.wait_for(state="visible", timeout=30000)
+                    
+                    # disabled解除待ち
+                    page.wait_for_function(
+                        """btn => !btn.disabled && btn.getAttribute('aria-disabled') !== 'true'""",
+                        arg=save_btn.element_handle(),
+                        timeout=30000
+                    )
+                    
                     save_btn.scroll_into_view_if_needed()
-                    save_btn.click(force=True)
-
-                    page.wait_for_timeout(1000)
+                    save_btn.click()
+                    
+                    # モーダルが閉じるまで待つ
+                    modal.wait_for(state="detached", timeout=30000)
                     log("Cover image edit saved.")
 
-
-                    # ダイアログが閉じるのを待つ
-                    page.wait_for_selector('div.ReactModal__Overlay.CropModal__overlay', state='detached', timeout=10000)
 
                 except Exception as e:
                     log(f"Cover upload failed: {e}")
