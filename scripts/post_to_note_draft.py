@@ -98,17 +98,28 @@ def main():
             if "login" in page.url:
                 raise RuntimeError("Not logged in. auth.json invalid.")
 
-            # ✅ タイトル欄（DOM確定）
+            # ===== タイトル入力（ここはそのままでOK）=====
             title_box = page.locator('textarea[placeholder="記事タイトル"]').first
             title_box.wait_for(state="visible", timeout=30000)
             title_box.click()
             title_box.fill(title)
-
-            # ✅ 本文欄
+            
+            # ===== 本文入力（✅ insert_text → type に変更）=====
             editor = page.locator("div.ProseMirror[contenteditable='true']").first
             editor.wait_for(state="visible", timeout=30000)
             editor.click()
-            page.keyboard.insert_text(body_for_note)
+            
+            # ✅ 人が打っている扱いにする
+            for line in body_for_note.splitlines():
+                page.keyboard.type(line, delay=0)
+                page.keyboard.press("Enter")
+            
+            # ===== 下書き保存（✅ 追加）=====
+            save_btn = page.locator('button:has-text("下書き保存")').first
+            save_btn.wait_for(state="visible", timeout=30000)
+            save_btn.click()
+            
+            page.wait_for_timeout(2000)  # 保存完了待ち
 
             save_debug(page)
             log(f"SUCCESS. Current URL: {page.url}")
