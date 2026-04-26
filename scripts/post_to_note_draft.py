@@ -55,13 +55,9 @@ def md_to_note_body(md: str) -> str:
 def main():
     run_id = os.getenv("RUN_ID") or read_run_id()
     run_dir = Path(os.getenv("RUN_DIR", f"drafts/generated/{run_id}"))
-    images_dir = Path(os.getenv("IMAGES_DIR", f"assets/images/{run_id}")
-    )
+    images_dir = Path(os.getenv("IMAGES_DIR", f"assets/images/{run_id}"))
     article_path = run_dir / "article.md"
-    
-    # assets/images/{run_id}/cover_raw.png を使用
     cover_path = images_dir / "cover_raw.png"
-
 
     if not Path(AUTH_FILE).exists():
         raise SystemExit("auth.json not found")
@@ -109,8 +105,6 @@ def main():
                 page.keyboard.press("Enter")
 
             # ===== アイキャッチ画像アップロード =====
-            cover_path = images_dir / "cover_raw.png"
-            
             if cover_path.exists():
                 try:
                     # 画像追加ボタンをクリック
@@ -118,7 +112,7 @@ def main():
                     image_icon.wait_for(state="visible", timeout=5000)
                     image_icon.click()
                     page.wait_for_timeout(300)
-            
+
                     # 「画像をアップロード」ボタン（classで指定）
                     with page.expect_file_chooser() as fc_info:
                         upload_btn = page.locator('button.sc-131cded0-7.kwxNSB').first
@@ -130,27 +124,31 @@ def main():
                     log("Cover image uploaded (cover_raw.png) via filechooser.")
 
                     # 画像編集ダイアログ内の保存ボタンをクリック
-                    save_btn = page.locator('div.ReactModal__Overlay--after-open button:has-text("保存")').first
-                    if save_btn.count() == 0:
-                        # fallback: 親要素で絞り込み
-                        save_btn = page.locator('div[data-justify="right"] button:has-text("保存")').first
+                    save_btn = page.locator('div[data-justify="right"] button:has-text("保存")').first
                     save_btn.wait_for(state="visible", timeout=10000)
                     save_btn.wait_for(state="enabled", timeout=10000)
                     save_btn.click()
                     page.wait_for_timeout(1000)
                     log("Cover image edit saved.")
-                    
+
                     # ダイアログが閉じるのを待つ
                     page.wait_for_selector('div.ReactModal__Overlay.CropModal__overlay', state='detached', timeout=10000)
-                    
-                    # 下書き保存ボタンをクリック
-                    draft_save_btn = page.locator('button:has-text("下書き保存")').first
-                    draft_save_btn.wait_for(state="visible", timeout=10000)
-                    draft_save_btn.click()
-                    page.wait_for_timeout(1000)
-                    log("Draft saved.")
 
-        except Exception:
+                except Exception as e:
+                    log(f"Cover upload failed: {e}")
+            else:
+                log("cover_raw.png not found. Skipping cover upload.")
+
+            # ===== 下書き保存 =====
+            draft_save_btn = page.locator('button:has-text("下書き保存")').first
+            draft_save_btn.wait_for(state="visible", timeout=30000)
+            draft_save_btn.click()
+            page.wait_for_timeout(2000)  # 保存完了待ち
+
+            save_debug(page)
+            log(f"SUCCESS. Current URL: {page.url}")
+
+        except Exception as e:
             save_debug(page)
             raise
         finally:
