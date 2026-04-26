@@ -10,10 +10,8 @@ DEBUG_HTML = "debug.html"
 
 NEW_URL = "https://editor.note.com/new"
 
-
 def log(msg: str):
     print(msg, flush=True)
-
 
 def save_debug(page):
     try:
@@ -27,34 +25,24 @@ def save_debug(page):
     except Exception as e:
         log(f"Failed HTML: {e}")
 
-
 def read_run_id():
     return json.loads(Path("run_log.txt").read_text(encoding="utf-8"))["run_id"]
 
-
 def split_title_and_body(md_text: str, fallback_title: str):
     lines = md_text.splitlines()
-    # 空行やコードブロック開始をスキップ
     while lines and (lines[0].strip() == "" or lines[0].strip().startswith("```")):
         lines = lines[1:]
     title = fallback_title
     body_lines = lines[:]
-
     if lines and lines[0].startswith("# "):
         title = lines[0][2:].strip() or fallback_title
         body_lines = lines[1:]
         while body_lines and body_lines[0].strip() == "":
             body_lines = body_lines[1:]
-
     body = "\n".join(body_lines).strip()
     return title, body
 
-
 def md_to_note_body(md: str) -> str:
-    """
-    note では Markdown 自動昇格を期待しない。
-    ## 見出し → H2 風表現に変換
-    """
     out = []
     for line in md.splitlines():
         if line.startswith("## "):
@@ -64,11 +52,13 @@ def md_to_note_body(md: str) -> str:
             out.append(line)
     return "\n".join(out)
 
-
 def main():
     run_id = os.getenv("RUN_ID") or read_run_id()
     run_dir = Path(os.getenv("RUN_DIR", f"drafts/generated/{run_id}"))
+    images_dir = Path(os.getenv("IMAGES_DIR", f"assets/images/{run_id}")
+    )
     article_path = run_dir / "article.md"
+    cover_path = images_dir / "cover_1280x210.png"  # note推奨サイズ
 
     if not Path(AUTH_FILE).exists():
         raise SystemExit("auth.json not found")
@@ -101,27 +91,50 @@ def main():
             if "login" in page.url:
                 raise RuntimeError("Not logged in. auth.json invalid.")
 
-            # ===== タイトル入力（ここはそのままでOK）=====
+            # ===== タイトル入力 =====
             title_box = page.locator('textarea[placeholder="記事タイトル"]').first
             title_box.wait_for(state="visible", timeout=30000)
             title_box.click()
             title_box.fill(title)
-            
-            # ===== 本文入力（✅ insert_text → type に変更）=====
+
+            # ===== 本文入力 =====
             editor = page.locator("div.ProseMirror[contenteditable='true']").first
             editor.wait_for(state="visible", timeout=30000)
             editor.click()
-            
-            # ✅ 人が打っている扱いにする
             for line in body_for_note.splitlines():
                 page.keyboard.type(line, delay=0)
                 page.keyboard.press("Enter")
-            
-            # ===== 下書き保存（✅ 追加）=====
+
+            # ===== アイキャッチ画像アップロード =====
+            if cover_path.exists():
+                try:
+                    # 画像アイコンをクリック
+                    image_icon = page.locator('button[aria-label="画像を追加"]').first
+                    image_icon.wait_for(state="visible", timeout=5000)
+                    image_icon.click()
+                    page.wait_for_timeout(500)
+
+                    # 「画像をアップロード」ボタンをクリック
+                    upload_btn = page.locator('button:has-text("画像をアップロード")').first
+                    upload_btn.wait_for(state="visible", timeout=5000)
+                    upload_btn.click()
+                    page.wait_for_timeout(500)
+
+                    # file input に画像をセット
+                    file_input = page.locator('input[type="file"]').first
+                    file_input.wait_for(state="visible", timeout=5000)
+                    file_input.set_input_files(str(cover_path))
+                    page.wait_for_timeout(1500)
+                    log("Cover image uploaded.")
+                except Exception as e:
+                    log(f"Cover upload failed: {e}")
+            else:
+                log("Cover image not found. Skipping cover upload for now.")
+
+            # ===== 下書き保存 =====
             save_btn = page.locator('button:has-text("下書き保存")').first
             save_btn.wait_for(state="visible", timeout=30000)
             save_btn.click()
-            
             page.wait_for_timeout(2000)  # 保存完了待ち
 
             save_debug(page)
@@ -133,7 +146,6 @@ def main():
         finally:
             context.tracing.stop(path=TRACE_FILE)
             browser.close()
-
 
 if __name__ == "__main__":
     main()
