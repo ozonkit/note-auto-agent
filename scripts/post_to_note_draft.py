@@ -129,28 +129,26 @@ def main():
                     page.wait_for_timeout(1500)
                     log("Cover image uploaded (cover_raw.png) via filechooser.")
 
-                    # 画像編集ダイアログ内の保存ボタン（class名＋テキストで絞り込み）
-                    save_btn = page.locator('div[data-justify="right"] button:has-text("保存")').first
+                    # 画像編集ダイアログ内の保存ボタンをクリック
+                    save_btn = page.locator('div.ReactModal__Overlay--after-open button:has-text("保存")').first
+                    if save_btn.count() == 0:
+                        # fallback: 親要素で絞り込み
+                        save_btn = page.locator('div[data-justify="right"] button:has-text("保存")').first
                     save_btn.wait_for(state="visible", timeout=10000)
                     save_btn.wait_for(state="enabled", timeout=10000)
                     save_btn.click()
                     page.wait_for_timeout(1000)
                     log("Cover image edit saved.")
-
-                except Exception as e:
-                    log(f"Cover upload failed: {e}")
-            else:
-                log("cover_raw.png not found. Skipping cover upload.")
-
-
-            # ===== 下書き保存 =====
-            save_btn = page.locator('button:has-text("下書き保存")').first
-            save_btn.wait_for(state="visible", timeout=30000)
-            save_btn.click()
-            page.wait_for_timeout(2000)  # 保存完了待ち
-
-            save_debug(page)
-            log(f"SUCCESS. Current URL: {page.url}")
+                    
+                    # ダイアログが閉じるのを待つ
+                    page.wait_for_selector('div.ReactModal__Overlay.CropModal__overlay', state='detached', timeout=10000)
+                    
+                    # 下書き保存ボタンをクリック
+                    draft_save_btn = page.locator('button:has-text("下書き保存")').first
+                    draft_save_btn.wait_for(state="visible", timeout=10000)
+                    draft_save_btn.click()
+                    page.wait_for_timeout(1000)
+                    log("Draft saved.")
 
         except Exception:
             save_debug(page)
