@@ -123,13 +123,21 @@ def main():
                     page.wait_for_timeout(1500)
                     log("Cover image uploaded (cover_raw.png) via filechooser.")
 
-                    # 画像編集ダイアログ内の保存ボタンをクリック
-                    save_btn = page.locator('div[data-justify="right"] button:has-text("保存")').first
+                    # ダイアログ内限定で保存ボタンを狙う
+                    save_btn = page.locator(
+                        'div[role="dialog"] div[data-justify="right"] button.relative:has-text("保存")'
+                    ).first
                     save_btn.wait_for(state="visible", timeout=10000)
                     save_btn.wait_for(state="enabled", timeout=10000)
-                    save_btn.click()
+                    
+                    
+                    # ここでスクロール＆forceクリックを追加
+                    save_btn.scroll_into_view_if_needed()
+                    save_btn.click(force=True)
+
                     page.wait_for_timeout(1000)
                     log("Cover image edit saved.")
+
 
                     # ダイアログが閉じるのを待つ
                     page.wait_for_selector('div.ReactModal__Overlay.CropModal__overlay', state='detached', timeout=10000)
