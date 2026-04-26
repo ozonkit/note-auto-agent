@@ -115,7 +115,8 @@ def main():
                 try:
                     # 画像アイコンのエリア（ドラッグ＆ドロップ対応領域）を取得
                     # 例: data-dragging="false" か aria-label="画像を追加" のdiv/button
-                    drop_target = page.locator('div[data-dragging="false"]').first
+                    drop_target = page.locator('div[data-dragging]').first
+                    # drop_target = page.locator('button[aria-label="画像を追加"]').first
                     drop_target.wait_for(state="visible", timeout=5000)
             
                     # ファイルをドラッグ＆ドロップでアップロード
