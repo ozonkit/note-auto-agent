@@ -129,11 +129,12 @@ def main():
                     page.wait_for_timeout(1500)
                     log("Cover image uploaded (cover_raw.png) via filechooser.")
 
-                    # 画像編集ダイアログの「保存」ボタンをクリック
-                    save_btn = page.locator('button:has-text("保存")').first
+                    # 画像編集ダイアログ内の保存ボタン（class名＋テキストで絞り込み）
+                    save_btn = page.locator('div[data-justify="right"] button:has-text("保存")').first
                     save_btn.wait_for(state="visible", timeout=10000)
+                    save_btn.wait_for(state="enabled", timeout=10000)
                     save_btn.click()
-                    page.wait_for_timeout(1000)  # 保存完了待ち
+                    page.wait_for_timeout(1000)
                     log("Cover image edit saved.")
 
                 except Exception as e:
