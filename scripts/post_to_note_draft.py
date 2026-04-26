@@ -34,6 +34,9 @@ def read_run_id():
 
 def split_title_and_body(md_text: str, fallback_title: str):
     lines = md_text.splitlines()
+    # 空行やコードブロック開始をスキップ
+    while lines and (lines[0].strip() == "" or lines[0].strip().startswith("```")):
+        lines = lines[1:]
     title = fallback_title
     body_lines = lines[:]
 
