@@ -109,30 +109,19 @@ def main():
                 page.keyboard.press("Enter")
 
             # ===== アイキャッチ画像アップロード =====
-            
             cover_path = images_dir / "cover_raw.png"
             
             if cover_path.exists():
                 try:
-                    # 画像アイコンをクリック
-                    image_icon = page.locator('button[aria-label="画像を追加"]').first
-                    image_icon.wait_for(state="visible", timeout=5000)
-                    image_icon.click()
-                    page.wait_for_timeout(300)
+                    # 画像アイコンのエリア（ドラッグ＆ドロップ対応領域）を取得
+                    # 例: data-dragging="false" か aria-label="画像を追加" のdiv/button
+                    drop_target = page.locator('div[data-dragging="false"]').first
+                    drop_target.wait_for(state="visible", timeout=5000)
             
-                    # 「画像をアップロード」ボタンをクリック
-                    upload_btn = page.locator('button:has-text("画像をアップロード")').first
-                    upload_btn.wait_for(state="visible", timeout=5000)
-                    upload_btn.click()
-                    page.wait_for_timeout(1000)  # 少し長めに待つ
-            
-                    # input[type="file"] の出現を最大20秒待つ
-                    file_input = page.locator('input[type="file"]').first
-                    file_input.wait_for(state="attached", timeout=20000)
-                    file_input.set_input_files(str(cover_path))
-            
+                    # ファイルをドラッグ＆ドロップでアップロード
+                    drop_target.set_input_files(str(cover_path))
                     page.wait_for_timeout(1500)
-                    log("Cover image uploaded (cover_raw.png).")
+                    log("Cover image uploaded (cover_raw.png) via drag & drop.")
             
                 except Exception as e:
                     log(f"Cover upload failed: {e}")
