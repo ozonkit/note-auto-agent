@@ -110,23 +110,25 @@ def main():
 
             # ===== アイキャッチ画像アップロード =====
             
+            cover_path = images_dir / "cover_raw.png"
+            
             if cover_path.exists():
                 try:
-                    # 1. アイキャッチの「画像を追加」ボタン
+                    # 画像アイコンをクリック
                     image_icon = page.locator('button[aria-label="画像を追加"]').first
                     image_icon.wait_for(state="visible", timeout=5000)
                     image_icon.click()
                     page.wait_for_timeout(300)
             
-                    # 2. 「画像をアップロード」
+                    # 「画像をアップロード」ボタンをクリック
                     upload_btn = page.locator('button:has-text("画像をアップロード")').first
                     upload_btn.wait_for(state="visible", timeout=5000)
                     upload_btn.click()
-                    page.wait_for_timeout(300)
+                    page.wait_for_timeout(1000)  # 少し長めに待つ
             
-                    # 3. file input に cover_raw.png をセット
+                    # input[type="file"] の出現を最大20秒待つ
                     file_input = page.locator('input[type="file"]').first
-                    file_input.wait_for(state="attached", timeout=5000)
+                    file_input.wait_for(state="attached", timeout=20000)
                     file_input.set_input_files(str(cover_path))
             
                     page.wait_for_timeout(1500)
@@ -136,6 +138,7 @@ def main():
                     log(f"Cover upload failed: {e}")
             else:
                 log("cover_raw.png not found. Skipping cover upload.")
+
 
 
             # ===== 下書き保存 =====
