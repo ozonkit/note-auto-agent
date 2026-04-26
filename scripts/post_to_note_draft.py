@@ -113,22 +113,26 @@ def main():
             
             if cover_path.exists():
                 try:
-                    # 画像アイコンのエリア（ドラッグ＆ドロップ対応領域）を取得
-                    # 例: data-dragging="false" か aria-label="画像を追加" のdiv/button
-                    # drop_target = page.locator('div[data-dragging]').first
-                    drop_target = page.locator('button[aria-label="画像を追加"]').first
-                    drop_target.wait_for(state="visible", timeout=5000)
+                    # 画像追加ボタンをクリック
+                    image_icon = page.locator('button[aria-label="画像を追加"]').first
+                    image_icon.wait_for(state="visible", timeout=5000)
+                    image_icon.click()
+                    page.wait_for_timeout(300)
             
-                    # ファイルをドラッグ＆ドロップでアップロード
-                    drop_target.set_input_files(str(cover_path))
+                    # 「画像をアップロード」ボタン（classで指定）
+                    with page.expect_file_chooser() as fc_info:
+                        upload_btn = page.locator('button.sc-131cded0-7.kwxNSB').first
+                        upload_btn.wait_for(state="visible", timeout=5000)
+                        upload_btn.click()
+                    file_chooser = fc_info.value
+                    file_chooser.set_files(str(cover_path))
                     page.wait_for_timeout(1500)
-                    log("Cover image uploaded (cover_raw.png) via drag & drop.")
+                    log("Cover image uploaded (cover_raw.png) via filechooser.")
             
                 except Exception as e:
                     log(f"Cover upload failed: {e}")
             else:
                 log("cover_raw.png not found. Skipping cover upload.")
-
 
 
             # ===== 下書き保存 =====
