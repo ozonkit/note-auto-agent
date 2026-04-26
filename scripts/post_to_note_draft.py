@@ -58,7 +58,10 @@ def main():
     images_dir = Path(os.getenv("IMAGES_DIR", f"assets/images/{run_id}")
     )
     article_path = run_dir / "article.md"
-    cover_path = images_dir / "cover_1280x210.png"  # note推奨サイズ
+    
+    # assets/images/{run_id}/cover_raw.png を使用
+    cover_path = images_dir / "cover_raw.png"
+
 
     if not Path(AUTH_FILE).exists():
         raise SystemExit("auth.json not found")
@@ -106,30 +109,34 @@ def main():
                 page.keyboard.press("Enter")
 
             # ===== アイキャッチ画像アップロード =====
+            
             if cover_path.exists():
                 try:
-                    # 画像アイコンをクリック
+                    # 1. アイキャッチの「画像を追加」ボタン
                     image_icon = page.locator('button[aria-label="画像を追加"]').first
                     image_icon.wait_for(state="visible", timeout=5000)
                     image_icon.click()
-                    page.wait_for_timeout(500)
-
-                    # 「画像をアップロード」ボタンをクリック
+                    page.wait_for_timeout(300)
+            
+                    # 2. 「画像をアップロード」
                     upload_btn = page.locator('button:has-text("画像をアップロード")').first
                     upload_btn.wait_for(state="visible", timeout=5000)
                     upload_btn.click()
-                    page.wait_for_timeout(500)
-
-                    # file input に画像をセット
+                    page.wait_for_timeout(300)
+            
+                    # 3. file input に cover_raw.png をセット
                     file_input = page.locator('input[type="file"]').first
-                    file_input.wait_for(state="visible", timeout=5000)
+                    file_input.wait_for(state="attached", timeout=5000)
                     file_input.set_input_files(str(cover_path))
+            
                     page.wait_for_timeout(1500)
-                    log("Cover image uploaded.")
+                    log("Cover image uploaded (cover_raw.png).")
+            
                 except Exception as e:
                     log(f"Cover upload failed: {e}")
             else:
-                log("Cover image not found. Skipping cover upload for now.")
+                log("cover_raw.png not found. Skipping cover upload.")
+
 
             # ===== 下書き保存 =====
             save_btn = page.locator('button:has-text("下書き保存")').first
