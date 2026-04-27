@@ -1,10 +1,10 @@
 import os
 import json
+import re
 from pathlib import Path
-from openai import OpenAI
+from openai import AzureOpenAI
 
 REVIEW_PROMPT_PATH = Path("prompts/article_quality_review.md")
-
 PASS_SCORE = int(os.getenv("PASS_SCORE", "80"))
 
 
@@ -14,9 +14,6 @@ def load_prompt(article_text: str) -> str:
 
 
 def extract_json(text: str) -> dict:
-    """
-    LLMが余計な文字を返した場合に備えてJSON部分だけ抜き出す。
-    """
     start = text.find("{")
     end = text.rfind("}")
 
@@ -26,50 +23,43 @@ def extract_json(text: str) -> dict:
     return json.loads(text[start:end + 1])
 
 
-def review_article(article_path: Path, output_dir: Path) -> dict:
-    client = AzureOpenAI(
-        api_key=os.environ["AZURE_OPENAI_API_KEY"],
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-    )
-    
-    response = client.chat.completions.create(
-        model=os.environ["AZURE_OPENAI_DEPLOYMENT"],  # ←ここ重要
-        messages=[
-            {"role": "system", "content": "あなたはnote記事の編集者です。JSONのみで回答してください。"},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.2,
-    )
+def build_meta_block(result: dict, existing_article: str) -> str:
+    paid = result.get("paid_potential", {})
+    tags = result.get("recommended_tags", [])
+    tags_text = " ".join(tags) if isinstance(tags, list) else str(tags)
 
-    content = response.choices[0].message.content
-    result = extract_json(content)
+    # 既存METAからカテゴリ等を拾う
+    def pick(label: str, default: str = "") -> str:
+        m = re.search(rf"^{label}：(.+)$", existing_article, flags=re.MULTILINE)
+        return m.group(1).strip() if m else default
 
-    total_score = int(result.get("total_score", 0))
-    result["pass"] = total_score >= PASS_SCORE
+    return f"""---META---
+カテゴリ：{pick("カテゴリ")}
+ターゲット：{pick("ターゲット")}
+角度：{pick("角度")}
+有料化候補：{paid.get("is_paid_candidate", "不明")}
+想定価格：{paid.get("suggested_price_yen", "未定")}
+タグ：{tags_text}
+レビュー：{result.get("total_score", "未評価")}点
+推奨マガジン：{result.get("recommended_magazine", "")}
+有料化するなら：{paid.get("suggested_paid_section", "")}
+---END---"""
 
-    output_dir.mkdir(parents=True, exist_ok=True)
 
-    review_json_path = output_dir / "review.json"
-    review_md_path = output_dir / "review.md"
+def replace_or_append_meta(article_text: str, result: dict) -> str:
+    meta_block = build_meta_block(result, article_text)
 
-    review_json_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2),
-        encoding="utf-8"
-    )
+    pattern = r"---META---.*?---END---"
+    if re.search(pattern, article_text, flags=re.DOTALL):
+        return re.sub(pattern, meta_block, article_text, flags=re.DOTALL).strip() + "\n"
 
-    review_md_path.write_text(
-        format_review_markdown(result),
-        encoding="utf-8"
-    )
-
-    return result
+    return article_text.strip() + "\n\n" + meta_block + "\n"
 
 
 def format_review_markdown(result: dict) -> str:
     lines = []
 
-    lines.append(f"# 記事品質レビュー")
+    lines.append("# 記事品質レビュー")
     lines.append("")
     lines.append(f"総合スコア：{result.get('total_score')}点")
     lines.append(f"合格判定：{'合格' if result.get('pass') else '要改善'}")
@@ -103,10 +93,60 @@ def format_review_markdown(result: dict) -> str:
         lines.append(f"- {tag}")
 
     lines.append("")
-    lines.append(f"## 推奨マガジン")
+    lines.append("## 推奨マガジン")
     lines.append(str(result.get("recommended_magazine", "")))
 
     return "\n".join(lines)
+
+
+def review_article(article_path: Path, output_dir: Path) -> dict:
+    article_text = article_path.read_text(encoding="utf-8")
+    prompt = load_prompt(article_text)
+
+    client = AzureOpenAI(
+        api_key=os.environ["AZURE_OPENAI_API_KEY"],
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+    )
+
+    response = client.chat.completions.create(
+        model=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+        messages=[
+            {
+                "role": "system",
+                "content": "あなたはnote記事の編集者です。必ずJSONのみで回答してください。",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0.2,
+    )
+
+    content = response.choices[0].message.content or ""
+    result = extract_json(content)
+
+    total_score = int(result.get("total_score", 0))
+    result["pass"] = total_score >= PASS_SCORE
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    (output_dir / "review.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    (output_dir / "review.md").write_text(
+        format_review_markdown(result) + "\n",
+        encoding="utf-8",
+    )
+
+    # article.md末尾のMETAをレビュー結果で更新
+    updated_article = replace_or_append_meta(article_text, result)
+    article_path.write_text(updated_article, encoding="utf-8")
+
+    return result
 
 
 def main():
