@@ -63,7 +63,29 @@ jobs:
 
       # 👇 ここに追加
       - name: Review article quality
+        id: review1
         continue-on-error: true
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          AZURE_OPENAI_API_VERSION: "2024-02-15-preview"
+          PASS_SCORE: 80
+        run: |
+          python scripts/review_article.py
+      
+      - name: Rewrite article if review failed
+        if: ${{ steps.review1.outcome == 'failure' }}
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          AZURE_OPENAI_API_VERSION: "2024-02-15-preview"
+        run: |
+          python scripts/rewrite_article.py
+      
+      - name: Review article quality again
+        if: ${{ steps.review1.outcome == 'failure' }}
         env:
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
           AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
@@ -74,6 +96,7 @@ jobs:
           python scripts/review_article.py
 
       - name: Generate image (MAI-Image-2e)
+        if: success()   # ←ここ
         env:
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
           AZURE_OPENAI_IMAGE_ENDPOINT: ${{ secrets.AZURE_OPENAI_IMAGE_ENDPOINT }}
@@ -88,18 +111,9 @@ jobs:
           python scripts/generate_image_azure.py
      
       - name: Crop image for note
+        if: success()   # ←ここも
         run: |
           python scripts/crop_note_cover.py
-
-
-      # - name: Upload artifacts (draft + images)
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: generated-draft
-      #     path: |
-      #       drafts/generated/**
-      #       assets/images/**
-      #       run_log.txt
             
       - name: Restore note auth state
         env:
@@ -113,16 +127,6 @@ jobs:
           pip install playwright
           python -m playwright install --with-deps chromium
           
-      - name: Post to note (draft only) - headed via Xvfb
-        env:
-          HEADLESS: "false"
-          TEST_MODE: "false"
-          UPLOAD_COVER: "false"
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
-          xvfb-run -a python scripts/post_to_note_draft.py
-
 
       - name: Set paths for posting (RUN_ID/RUN_DIR/IMAGES_DIR)
         shell: bash
@@ -152,6 +156,15 @@ jobs:
             echo "IMAGES_DIR not found: ${IMAGES_DIR}"
           fi
 
+      - name: Post to note (draft only) - headed via Xvfb
+        env:
+          HEADLESS: "false"
+          TEST_MODE: "false"
+          UPLOAD_COVER: "true"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          xvfb-run -a python scripts/post_to_note_draft.py
           
       - name: Upload artifacts (draft + images + debug)
         if: always()
