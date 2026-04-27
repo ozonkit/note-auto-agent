@@ -56,13 +56,19 @@ def write_themes(rows: list[dict]) -> None:
 def get_next_theme_from_queue() -> tuple[dict, int]:
     rows = read_themes()
 
+    # ① TODO優先
     for idx, row in enumerate(rows):
         if row.get("status", "").upper() == "TODO":
             row["status"] = "DOING"
             write_themes(rows)
             return row, idx
 
-    raise RuntimeError("No TODO theme found in themes.csv")
+    # ② DOINGをリトライ（条件付き）
+    for idx, row in enumerate(rows):
+        if row.get("status", "").upper() == "DOING":
+            return row, idx
+
+    raise RuntimeError("No TODO or DOING theme found")
 
 
 def update_theme_status(theme_id: str | None, new_status: str, run_id: str | None = None) -> None:
