@@ -211,8 +211,8 @@ def main():
             encoding="utf-8",
         )
 
-        if queue_mode:
-            update_theme_status(theme_id, "GENERATED", run_id)
+        # if queue_mode:
+        #     update_theme_status(theme_id, "GENERATED", run_id)
 
         print("OK:", run_dir)
 
