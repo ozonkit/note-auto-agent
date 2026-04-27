@@ -216,9 +216,9 @@ def upload_cover_image(page, cover_path: Path):
 
 def main():
     run_id = os.getenv("RUN_ID") or read_run_id()
-    run_dir = Path(os.getenv("RUN_DIR", f"drafts/generated/{run_id}"))
-    images_dir = Path(os.getenv("IMAGES_DIR", f"assets/images/{run_id}"))
-
+    run_dir = Path(os.getenv("RUN_DIR", ROOT / f"drafts/generated/{run_id}"))
+    images_dir = Path(os.getenv("IMAGES_DIR", ROOT / f"assets/images/{run_id}"))
+    
     article_path = run_dir / "article.md"
     cover_path = images_dir / "cover_raw.png"
 
@@ -284,6 +284,7 @@ def main():
             page.wait_for_timeout(1500)
 
             # ===== アイキャッチ画像アップロード =====
+            print(f"IMAGE_PATH={cover_path}")
             if cover_path.exists():
                 try:
                     upload_cover_image(page, cover_path)
