@@ -14,6 +14,14 @@ def read_run_id():
 
     return json.loads(path.read_text(encoding="utf-8"))["run_id"]
 
+def read_run_meta():
+    path = ROOT / "run_log.txt"
+    if not path.exists():
+        raise RuntimeError("run_log.txt not found")
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data.get("run_id"), data.get("theme_id", None)
+    
 # 👇 そのあとで使う
 run_id = os.getenv("RUN_ID")
 if not run_id:
@@ -235,9 +243,37 @@ def upload_cover_image(page, cover_path: Path):
     modal.wait_for(state="detached", timeout=30000)
     log("Cover image edit saved.")
 
+import csv
+
+def update_theme_status(theme_id, new_status, run_id=None):
+    csv_path = ROOT / "themes.csv"
+
+    if not csv_path.exists() or not theme_id:
+        return
+
+    rows = []
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if str(row.get("id")) == str(theme_id):
+                row["status"] = new_status
+                if "run_id" in row and run_id:
+                    row["run_id"] = run_id
+            rows.append(row)
+
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
 
 def main():
-    run_id = os.getenv("RUN_ID") or read_run_id()
+    env_run_id = os.getenv("RUN_ID")
+    
+    if env_run_id:
+        run_id = env_run_id
+        _, theme_id = read_run_meta()
+    else:
+        run_id, theme_id = read_run_meta()
     run_dir = Path(os.getenv("RUN_DIR", ROOT / f"drafts/generated/{run_id}"))
     images_dir = Path(os.getenv("IMAGES_DIR", ROOT / f"assets/images/{run_id}"))
     
@@ -326,6 +362,7 @@ def main():
             save_debug(page)
             log(f"SUCCESS. Current URL: {page.url}")
 
+            update_theme_status(theme_id, "DRAFTED", run_id)
         except Exception:
             save_debug(page)
             raise
