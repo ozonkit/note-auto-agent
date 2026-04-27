@@ -6,9 +6,19 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# 👇 先に定義する
+def read_run_id():
+    path = ROOT / "run_log.txt"
+    if not path.exists():
+        raise RuntimeError("run_log.txt not found")
+
+    return json.loads(path.read_text(encoding="utf-8"))["run_id"]
+
+# 👇 そのあとで使う
 run_id = os.getenv("RUN_ID")
 if not run_id:
     run_id = read_run_id()
+    
 run_dir = Path(os.getenv("RUN_DIR", ROOT / f"drafts/generated/{run_id}"))
 images_dir = Path(os.getenv("IMAGES_DIR", ROOT / f"assets/images/{run_id}"))
 
@@ -38,12 +48,12 @@ def save_debug(page):
         log(f"Failed HTML: {e}")
 
 
-def read_run_id():
-    path = ROOT / "run_log.txt"
-    if not path.exists():
-        raise RuntimeError("run_log.txt not found")
+# def read_run_id():
+#     path = ROOT / "run_log.txt"
+#     if not path.exists():
+#         raise RuntimeError("run_log.txt not found")
 
-    return json.loads(path.read_text(encoding="utf-8"))["run_id"]
+#     return json.loads(path.read_text(encoding="utf-8"))["run_id"]
 
 
 def split_title_and_body(md_text: str, fallback_title: str):
