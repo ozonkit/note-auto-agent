@@ -148,11 +148,46 @@ def review_article(article_path: Path, output_dir: Path) -> dict:
 
     return result
 
+import csv
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+
+def update_theme_status(theme_id, new_status, run_id=None):
+    csv_path = ROOT / "themes.csv"
+
+    if not csv_path.exists() or not theme_id:
+        return
+
+    rows = []
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if str(row.get("id")) == str(theme_id):
+                row["status"] = new_status
+                if "run_id" in row and run_id:
+                    row["run_id"] = run_id
+            rows.append(row)
+
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+
+def read_run_meta():
+    path = ROOT / "run_log.txt"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data.get("run_id"), data.get("theme_id")
+    
 def main():
-    run_id = os.getenv("RUN_ID")
-    if not run_id:
-        run_id = json.loads(Path("run_log.txt").read_text(encoding="utf-8"))["run_id"]
+    # 👇 ここを置き換える（これが正解）
+    env_run_id = os.getenv("RUN_ID")
+
+    if env_run_id:
+        run_id = env_run_id
+        _, theme_id = read_run_meta()  # theme_idだけ取る
+    else:
+        run_id, theme_id = read_run_meta()
 
     run_dir = Path(os.getenv("RUN_DIR", f"drafts/generated/{run_id}"))
     article_path = run_dir / "article.md"
