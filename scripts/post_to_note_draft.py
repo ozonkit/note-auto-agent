@@ -4,6 +4,12 @@ import re
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+ROOT = Path(__file__).resolve().parents[1]
+
+run_id = os.getenv("RUN_ID") or read_run_id()
+run_dir = Path(os.getenv("RUN_DIR", ROOT / f"drafts/generated/{run_id}"))
+images_dir = Path(os.getenv("IMAGES_DIR", ROOT / f"assets/images/{run_id}"))
+
 AUTH_FILE = "auth.json"
 TRACE_FILE = "trace.zip"
 DEBUG_PNG = "debug.png"
