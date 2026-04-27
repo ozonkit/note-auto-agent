@@ -5,7 +5,7 @@ on:
     inputs:
       theme:
         description: "記事テーマ"
-        required: true
+        required: false
         type: string
       tone:
         description: "文体（任意）"
