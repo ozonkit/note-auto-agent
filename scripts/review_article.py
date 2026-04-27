@@ -27,22 +27,17 @@ def extract_json(text: str) -> dict:
 
 
 def review_article(article_path: Path, output_dir: Path) -> dict:
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-
-    article_text = article_path.read_text(encoding="utf-8")
-    prompt = load_prompt(article_text)
-
+    client = AzureOpenAI(
+        api_key=os.environ["AZURE_OPENAI_API_KEY"],
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+    )
+    
     response = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+        model=os.environ["AZURE_OPENAI_DEPLOYMENT"],  # ←ここ重要
         messages=[
-            {
-                "role": "system",
-                "content": "あなたはnote記事の編集者です。必ずJSONのみで回答してください。"
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "system", "content": "あなたはnote記事の編集者です。JSONのみで回答してください。"},
+            {"role": "user", "content": prompt}
         ],
         temperature=0.2,
     )
