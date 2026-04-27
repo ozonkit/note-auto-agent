@@ -165,6 +165,7 @@ def main():
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
     if not result["pass"]:
+        update_theme_status(theme_id, "FAILED", run_id)
         raise SystemExit(
             f"Article quality check failed. score={result.get('total_score')}"
         )
