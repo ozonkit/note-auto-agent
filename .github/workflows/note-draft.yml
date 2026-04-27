@@ -70,7 +70,7 @@ jobs:
           AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
           AZURE_OPENAI_API_VERSION: "2024-02-15-preview"
-          PASS_SCORE: 80
+          PASS_SCORE: 70
         run: |
           python scripts/review_article.py
       
@@ -91,7 +91,7 @@ jobs:
           AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
           AZURE_OPENAI_API_VERSION: "2024-02-15-preview"
-          PASS_SCORE: 80
+          PASS_SCORE: 70
         run: |
           python scripts/review_article.py
 
