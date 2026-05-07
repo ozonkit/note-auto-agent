@@ -1,0 +1,43 @@
+{
+  "total_score": 78,
+  "scores": {
+    "title": 8,
+    "intro_empathy": 9,
+    "benefit": 8,
+    "specificity": 9,
+    "story": 8,
+    "note_style": 9,
+    "paid_potential": 6,
+    "target_clarity": 8,
+    "originality": 7,
+    "cta": 6
+  },
+  "strengths": [
+    "導入が共感を呼び、読者の悩みに寄り添っている",
+    "具体的な食材や体験談、手順が豊富で実践的",
+    "noteらしい語り口と余白、読みやすい構成"
+  ],
+  "weaknesses": [
+    "CTAや次導線が弱く、読後のアクションが曖昧",
+    "有料化する場合の深掘りやテンプレートが不足",
+    "独自性はあるが、さらに差別化できる体験や視点が欲しい"
+  ],
+  "improvements": [
+    "記事末尾に「次の記事」「マガジン」「有料note」への導線を設置する",
+    "有料部分として「1週間の献立テンプレート」「買い物リスト」「時短レシピ集」などを追加する",
+    "独自の失敗談や成功談、読者との対話形式などで個性を強調する"
+  ],
+  "paid_potential": {
+    "is_paid_candidate": true,
+    "reason": "体験談と具体的なノウハウがあり、さらに献立テンプレや買い物リストなどを追加すれば有料化可能。現状は無料でも十分だが、深掘りで価値を出せる。",
+    "suggested_paid_section": "1週間の献立テンプレート、買い物リスト、時短レシピ集、失敗談と成功談の深掘り",
+    "suggested_price_yen": "480〜980円"
+  },
+  "recommended_tags": [
+    "#note",
+    "#生活改善",
+    "#自炊"
+  ],
+  "recommended_magazine": "節約・自炊・生活改善",
+  "pass": true
+}
