@@ -205,7 +205,7 @@ jobs:
 
 
       - name: Upload artifacts (draft + images + debug)
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: generated-draft
