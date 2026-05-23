@@ -1,0 +1,4 @@
+副業や継続、少しずつ前進するイメージのデスク、カレンダーやコーヒー、おだやかな雰囲気 --wide banner  
+ネガティブプロンプト: 雑然とした机、散らかった部屋、不安・焦燥の表情  
+スタイル: minimal photorealistic  
+画角: 3:1 wide banner, safe center composition
