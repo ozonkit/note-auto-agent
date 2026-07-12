@@ -1,0 +1,18 @@
+# 認証情報
+auth.json
+.auth/
+
+# 実行時ファイル
+run_log.txt
+
+# デバッグファイル
+debug.html
+debug.png
+debug_*.html
+debug_*.png
+trace.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
